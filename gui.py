@@ -55,10 +55,13 @@ def create_gui():
         output_text.delete(1.0, tk.END)
         progress_bar['value'] = 0
         window.update()
+        def update_progress(val):
+            progress_bar['value'] = val
+            window.update_idletasks()
         if messagebox.askyesno("Backup", "Create a backup before proceeding?"):
-            backup_files(folder_path, output_text)
+            backup_files(folder_path, output_text, progress_callback=update_progress)
         if action == "scrape":
-            get_video_titles(folder_path, output_text)
+            get_video_titles(folder_path, output_text, progress_callback=update_progress)
         elif action in ["replace", "remove"]:
             patterns = [p.strip() for p in patterns_var.get().split(',') if p.strip()]
             if not patterns:
@@ -67,12 +70,12 @@ def create_gui():
             if not validate_regex(patterns, output_text):
                 return
             replacement = replacement_var.get() if action == "replace" else ""
-            if not detect_duplicates(folder_path, output_text):
+            if not detect_duplicates(folder_path, output_text, progress_callback=update_progress):
                 if not messagebox.askyesno("Warning", "Duplicates found. Proceed anyway?"):
                     return
-            changes = preview_changes(folder_path, patterns, replacement, remove_mode, output_text)
+            changes = preview_changes(folder_path, patterns, replacement, remove_mode, output_text, progress_callback=update_progress)
             if changes and messagebox.askyesno("Confirm", "Apply these changes?"):
-                replace_text_in_filenames(folder_path, patterns, replacement, changes, output_text)
+                replace_text_in_filenames(folder_path, patterns, replacement, changes, output_text, progress_callback=update_progress)
                 output_text.insert(tk.END, f" {'Text replacement' if action == 'replace' else 'Text removal'} completed.\n")
         elif action == "organize":
             organize_by_timestamp(folder_path, output_text)

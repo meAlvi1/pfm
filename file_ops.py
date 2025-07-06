@@ -9,7 +9,7 @@ import json
 # Supported extensions for all file operations
 SUPPORTED_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".pdf"}
 
-def get_video_titles(folder_path, text_widget=None):
+def get_video_titles(folder_path, text_widget=None, progress_callback=None):
     """Extract and print unique video titles from the specified folder."""
     try:
         folder_name = os.path.basename(folder_path)
@@ -19,10 +19,9 @@ def get_video_titles(folder_path, text_widget=None):
             name, ext = os.path.splitext(filename)
             if ext.lower() in SUPPORTED_EXTENSIONS:
                 video_titles.add(name)
-            if text_widget:
+            if progress_callback:
                 progress = (i + 1) / len(files) * 100
-                text_widget.master.children['!progressbar']['value'] = progress
-                text_widget.master.update()
+                progress_callback(progress)
         output = f"\n **Folder Name:** {folder_name}\n\n📜 **Unique File Titles:**\n"
         for title in sorted(video_titles):
             output += f"- {title}\n"
@@ -40,7 +39,7 @@ def get_video_titles(folder_path, text_widget=None):
         logging.error(f"Error in get_video_titles: {str(e)}")
 
 
-def backup_files(folder_path, text_widget=None):
+def backup_files(folder_path, text_widget=None, progress_callback=None):
     """Create a backup of all files in the folder. Note: Subdirectories are not backed up."""
     try:
         backup_dir = os.path.join(folder_path, f"backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
@@ -51,10 +50,9 @@ def backup_files(folder_path, text_widget=None):
             dst = os.path.join(backup_dir, filename)
             if os.path.isfile(src):
                 shutil.copy2(src, dst)
-            if text_widget:
+            if progress_callback:
                 progress = (i + 1) / len(files) * 100
-                text_widget.master.children['!progressbar']['value'] = progress
-                text_widget.master.update()
+                progress_callback(progress)
         output = f"\n Backup created at: {os.path.basename(backup_dir)}\n(Warning: Subdirectories are not included in the backup.)\n"
         if text_widget:
             text_widget.insert('end', output)
@@ -72,7 +70,7 @@ def backup_files(folder_path, text_widget=None):
         return None
 
 
-def detect_duplicates(folder_path, text_widget=None):
+def detect_duplicates(folder_path, text_widget=None, progress_callback=None):
     """Detect and report duplicate filenames (ignoring extensions)."""
     try:
         name_count = {}
@@ -84,10 +82,9 @@ def detect_duplicates(folder_path, text_widget=None):
                 name_count[name] = name_count.get(name, 0) + 1
                 if name_count[name] > 1:
                     duplicates.append(name)
-            if text_widget:
+            if progress_callback:
                 progress = (i + 1) / len(files) * 100
-                text_widget.master.children['!progressbar']['value'] = progress
-                text_widget.master.update()
+                progress_callback(progress)
         if duplicates:
             output = "\n **Duplicate Filenames Detected:**\n" + "\n".join(f"- {dup}" for dup in set(duplicates)) + "\n"
             if text_widget:
@@ -132,7 +129,7 @@ def validate_regex(patterns, text_widget=None):
     return True
 
 
-def preview_changes(folder_path, patterns, replacement, remove_mode=False, text_widget=None):
+def preview_changes(folder_path, patterns, replacement, remove_mode=False, text_widget=None, progress_callback=None):
     """Preview filename changes before applying them. Prevents overwriting files."""
     try:
         if not validate_regex(patterns, text_widget):
@@ -160,10 +157,9 @@ def preview_changes(folder_path, patterns, replacement, remove_mode=False, text_
                         logging.warning(f"Skipping rename {filename} -> {candidate} (target exists)")
                         continue
                     changes.append((filename, candidate))
-            if text_widget:
+            if progress_callback:
                 progress = (i + 1) / len(files) * 100
-                text_widget.master.children['!progressbar']['value'] = progress
-                text_widget.master.update()
+                progress_callback(progress)
         if changes:
             output = "\n **Preview of Changes:**\n" + "\n".join(f"{os.path.basename(old)} -> {os.path.basename(new)}" for old, new in changes) + "\n"
         else:
@@ -184,12 +180,12 @@ def preview_changes(folder_path, patterns, replacement, remove_mode=False, text_
         return []
 
 
-def replace_text_in_filenames(folder_path, patterns, replacement, changes, text_widget=None):
+def replace_text_in_filenames(folder_path, patterns, replacement, changes, text_widget=None, progress_callback=None):
     """Apply filename changes and log for undo. Prevents overwriting files."""
     UNDO_FILE = "undo.json"
     try:
         undo_log = []
-        for old_name, new_name in changes:
+        for i, (old_name, new_name) in enumerate(changes):
             src = os.path.join(folder_path, old_name)
             dst = os.path.join(folder_path, new_name)
             if os.path.exists(dst):
@@ -208,6 +204,9 @@ def replace_text_in_filenames(folder_path, patterns, replacement, changes, text_
             else:
                 print(output)
             logging.info(f"Renamed: {os.path.basename(old_name)} -> {os.path.basename(new_name)}")
+            if progress_callback:
+                progress = (i + 1) / len(changes) * 100
+                progress_callback(progress)
         with open(UNDO_FILE, "w") as f:
             json.dump(undo_log, f)
         logging.info("Saved undo log")
